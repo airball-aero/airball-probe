@@ -6,12 +6,12 @@
 #include <SparkFunBQ27441.h>
 #include <vector>
 
-#include "calibration/calibration_surface.h"
-#include "calibration/probe_calibration.h"
-#include "calibration/pressures_to_airdata.h"
-#include "util/metric.h"
-#include "wifi/wifi_access_point.h"
-#include "wifi/wifi_client.h"
+#include "calibration_surface.h"
+#include "probe_calibration.h"
+#include "pressures_to_airdata.h"
+#include "metric.h"
+#include "wifi_access_point.h"
+#include "wifi_client.h"
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -247,16 +247,19 @@ void airdata_read_and_send() {
   float temp = 0.0f; // thermometer_read();
   
   int err = 0;
-  airdata_triple airdata =
-    pressures_to_airdata(&probe_alpha,
-			 &probe_beta,
-			 &probe_q_over_dp0,
-			 p.dp0,
-			 p.dpa,
-			 p.dpb,
-			 &err);
+  airdata a =
+    pressures_to_airdata(
+      &probe_alpha,
+			&probe_beta,
+			&probe_q_over_dp0,
+      &probe_minus_s_over_dp0,
+			p.dp0,
+			p.dpa,
+			p.dpb,
+      baro,
+			&err);
   if (err != 0) {
-    memset(&airdata, 0, sizeof(airdata_triple));
+    memset(&a, 0, sizeof(airdata));
   }
 
   if (ENABLE_RAW_AIRDATA) {
@@ -271,18 +274,18 @@ void airdata_read_and_send() {
     wifi->send(data_sentence_buffer);
   }
 
-  if (airdata.q < 0) {
-    airdata.q = 0;
+  if (a.q < 0) {
+    a.q = 0;
   }
 
   sprintf(data_sentence_buffer,
 	  "$AR,%ld,%10.6f,%10.6f,%10.6f,%10.6f,%10.6f",
 	  airdata_count,
-	  airdata.alpha,   // alpha
-	  airdata.beta,    // beta
-	  airdata.q,       // q
-	  baro,            // p TODO(ihab): Correction
-	  temp);           // T
+	  a.alpha,   // alpha
+	  a.beta,    // beta
+	  a.q,       // q
+	  a.p,       // p
+	  temp);     // T
   wifi->send(data_sentence_buffer);
 
   airdata_count++;
