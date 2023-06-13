@@ -28,20 +28,16 @@ struct airdata_struct pressures_to_airdata(const calibration_surface* cs_alpha,
   abs_sign rpb = get(dpb / dp0);
   
   r.alpha = interpolate(cs_alpha, rpa.abs, rpb.abs, err);
-  if (*err != 0) { return r; }
   r.alpha *= rpa.sign;
   
   r.beta = interpolate(cs_beta, rpa.abs, rpb.abs, err);
-  if (*err != 0) { return r; }
   r.beta *= rpb.sign;
-  
+
   float q_over_dp0 = interpolate(cs_q_over_dp0, rpa.abs, rpb.abs, err);  
-  if (*err != 0) { return r; }
   r.q = dp0 * q_over_dp0;
 
   float minus_s_over_dp0 = interpolate(cs_minus_s_over_dp0, rpa.abs, rpb.abs, err);
-  if (*err != 0) { return r; }
   r.p = raw_baro + minus_s_over_dp0 * dp0;
-  
+
   return r;  
 }

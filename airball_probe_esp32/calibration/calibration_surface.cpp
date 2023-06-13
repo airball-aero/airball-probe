@@ -4,7 +4,10 @@
 
 uint16_t idx(const axis_size *sz, const float v, int* err) {
   int32_t i = int((v + sz->zero_offset) / sz->step);
-  if (i < 0 || i >= sz->size) { *err = -1; }
+  if (i < 0 || i >= sz->size) { 
+    *err = -1;
+    i = 0;
+  }
   return (uint16_t)i;
 }
 
