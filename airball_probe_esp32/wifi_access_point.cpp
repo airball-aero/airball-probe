@@ -1,7 +1,7 @@
 #include "WiFiGeneric.h"
 #include "wifi_access_point.h"
 
-#define WIFI_SSID "airball0013"
+#define WIFI_SSID "airball0011"
 #define WIFI_PASS "relativewind"
 #define WIFI_UDP_PORT 30123
 
@@ -15,9 +15,10 @@ WifiAccessPoint::WifiAccessPoint() {}
 
 void WifiAccessPoint::begin() {
   WiFi.mode(WIFI_AP);
-  delay(STARTUP_DELAY_MS);
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
+  Serial.println(WiFi.softAPIP());
   WiFi.softAPConfig(local_ip, gateway_ip, subnet_ip_mask);
+  Serial.println(WiFi.softAPIP());
   broadcast_ip = WiFi.broadcastIP();
 }
 

@@ -11,6 +11,7 @@
 #include "metric.h"
 #include "wifi_access_point.h"
 #include "wifi_client.h"
+#include "pressure_autozero.h"
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -69,7 +70,7 @@ void metrics_send() {
 
 #define STATUS_LED_GPIO 10
 
-bool status_led_initializing = true;
+bool status_led_initializing = false;
 bool status_led_high = true;
 
 void status_led_begin() {
@@ -102,13 +103,7 @@ void status_led_measure() {
 // Range of the sensors we are using, in Pascals
 #define PRESSURE_SENSOR_RANGE 6000
 
-// Whether to perform an autozero of the pressure sensors
-#define PRESSURE_PERFORM_AUTOZERO true
-
-// How many airdata samples for autozero?
-#define PRESSURE_AUTOZERO_NUM_READINGS 100
-
-// Initialize our three sensors 
+// Initialize our three sensors
 TruStabilityPressureSensor pressure_neg_dp0(PRESSURE_SELECT_DP0,
 					-PRESSURE_SENSOR_RANGE,
 					 PRESSURE_SENSOR_RANGE);
@@ -132,20 +127,15 @@ typedef struct pressures_struct {
   float dpb;
 } pressures;
 
-unsigned long pressure_autozero_count = 0;
-bool pressure_autozero_complete = !PRESSURE_PERFORM_AUTOZERO;
-pressures pressure_autozero_offset = {
-  0.0f,
-  0.0f,
-  0.0f,
-};
-
 void pressures_begin() {
   // Initialize the pressure sensors
   pressure_neg_dp0.begin();
   pressure_neg_dpb.begin();
   pressure_pos_dpa.begin();
 }
+
+// Autozero module
+PressureAutozero autozero;
 
 struct pressures_struct pressures_read() {
   pressures p;
@@ -162,24 +152,11 @@ struct pressures_struct pressures_read() {
   p.dpa = pressure_read_one(&pressure_pos_dpa);
   metrics_dpa_time.record();
 
-  if (pressure_autozero_complete) {
-    status_led_complete_initializing();
-    p.dp0 -= pressure_autozero_offset.dp0;
-    p.dpa -= pressure_autozero_offset.dpa;
-    p.dpb -= pressure_autozero_offset.dpb;
-  } else {
-    if (pressure_autozero_count == PRESSURE_AUTOZERO_NUM_READINGS) {
-      pressure_autozero_offset.dp0 /= (float) PRESSURE_AUTOZERO_NUM_READINGS;
-      pressure_autozero_offset.dpa /= (float) PRESSURE_AUTOZERO_NUM_READINGS;
-      pressure_autozero_offset.dpb /= (float) PRESSURE_AUTOZERO_NUM_READINGS;
-      pressure_autozero_complete = true;
-    } else {
-      pressure_autozero_offset.dp0 += p.dp0;
-      pressure_autozero_offset.dpa += p.dpa;
-      pressure_autozero_offset.dpb += p.dpb;
-    }
-    pressure_autozero_count++;
-  }
+  auto adjusted = autozero.autozero({ p.dp0, p.dpa, p.dpb });
+
+  p.dp0 = adjusted[0];
+  p.dpa = adjusted[1];
+  p.dpb = adjusted[2];
 
   return p;
 }
@@ -235,6 +212,7 @@ void airdata_begin() {
   pressures_begin();
   barometer_begin();
   thermometer_begin();
+  autozero.begin();
 }
 
 long airdata_count = 0L;
@@ -274,13 +252,15 @@ void airdata_read_and_send() {
   }
 
   sprintf(data_sentence_buffer,
-	  "$AR,%ld,%10.6f,%10.6f,%10.6f,%10.6f,%10.6f",
+	  "$AR,%ld,%10.6f,%10.6f,%10.6f,%10.6f,%10.6f,%ld",
 	  airdata_count,
 	  a.alpha,   // alpha
 	  a.beta,    // beta
 	  a.q,       // q
 	  a.p,       // p
-	  temp);     // T
+	  temp,
+    millis());     // T
+  // Serial.println(data_sentence_buffer);
   wifi->send(data_sentence_buffer);
 
   airdata_count++;
