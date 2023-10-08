@@ -1,4 +1,5 @@
-#include "WiFiGeneric.h"
+#include <esp_wifi.h>
+
 #include "wifi_access_point.h"
 
 #define WIFI_SSID "airball0011"
@@ -20,10 +21,12 @@ void WifiAccessPoint::begin() {
   WiFi.softAPConfig(local_ip, gateway_ip, subnet_ip_mask);
   Serial.println(WiFi.softAPIP());
   broadcast_ip = WiFi.broadcastIP();
+  esp_wifi_set_ps(WIFI_PS_NONE);
 }
 
 void WifiAccessPoint::send(const char* sentence) {
   wifi_udp.beginPacket(broadcast_ip, WIFI_UDP_PORT);
   wifi_udp.write((const uint8_t*) sentence, strlen(sentence));
   wifi_udp.endPacket();
+  wifi_udp.flush();
 }
